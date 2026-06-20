@@ -459,7 +459,7 @@ func _process(delta: float) -> void:
 		if tps > 0.0:
 			_token_accumulator += tps * delta
 
-	# 节流状态更新（10fps），避免每帧触发 state_changed -> tps_recalculated -> _refresh_list
+	# 节流状态更新（10fps），避免每帧触发 state_changed
 	_ui_update_timer += delta
 	if _ui_update_timer >= UI_UPDATE_INTERVAL:
 		_ui_update_timer = 0.0

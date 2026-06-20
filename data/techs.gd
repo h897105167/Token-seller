@@ -36,6 +36,33 @@ class TechData:
 # 物品科技解锁所需的物品数量: t1=1, t2=50, t3=100, ... t15=700
 const _ITEM_TECH_UNLOCKS: Array = [1, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700]
 
+# ===== 静态缓存（避免每次调用都重建 321 个对象）=====
+static var _cache_all: Array = []
+static var _cache_by_id: Dictionary = {}
+static var _cache_input: Array = []
+static var _cache_universal: Array = []
+static var _cache_item: Dictionary = {}  # item_id -> Array
+
+
+static func _ensure_cache() -> void:
+	if _cache_all.size() > 0:
+		return
+	var techs: Array = []
+	_add_input_techs(techs)
+	_add_universal_techs(techs)
+	_add_all_item_techs(techs)
+	_cache_all = techs
+	for tech in techs:
+		_cache_by_id[tech.id] = tech
+		if tech.category == "input":
+			_cache_input.append(tech)
+		elif tech.category == "universal":
+			_cache_universal.append(tech)
+		elif tech.category == "item":
+			if not _cache_item.has(tech.target_item_id):
+				_cache_item[tech.target_item_id] = []
+			_cache_item[tech.target_item_id].append(tech)
+
 
 static func _make_item_techs(item_id: String, tech_data: Array) -> Array:
 	var techs: Array = []
@@ -66,11 +93,8 @@ static func get_tier_for_tech_num(t_num: int) -> int:
 
 
 static func get_all_techs() -> Array:
-	var techs: Array = []
-	_add_input_techs(techs)
-	_add_universal_techs(techs)
-	_add_all_item_techs(techs)
-	return techs
+	_ensure_cache()
+	return _cache_all
 
 
 static func _add_input_techs(techs: Array) -> void:
@@ -512,31 +536,20 @@ static func _add_all_item_techs(techs: Array) -> void:
 
 
 static func get_input_techs() -> Array:
-	var result: Array = []
-	for tech in get_all_techs():
-		if tech.category == "input":
-			result.append(tech)
-	return result
+	_ensure_cache()
+	return _cache_input
 
 
 static func get_universal_techs() -> Array:
-	var result: Array = []
-	for tech in get_all_techs():
-		if tech.category == "universal":
-			result.append(tech)
-	return result
+	_ensure_cache()
+	return _cache_universal
 
 
 static func get_item_techs(item_id: String) -> Array:
-	var result: Array = []
-	for tech in get_all_techs():
-		if tech.category == "item" and tech.target_item_id == item_id:
-			result.append(tech)
-	return result
+	_ensure_cache()
+	return _cache_item.get(item_id, [])
 
 
 static func get_tech_by_id(id: String) -> TechData:
-	for tech in get_all_techs():
-		if tech.id == id:
-			return tech
-	return null
+	_ensure_cache()
+	return _cache_by_id.get(id, null)

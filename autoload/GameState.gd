@@ -42,10 +42,12 @@ func _ready() -> void:
 	tps_calculator = TPSCalculator.new()
 	tps_calculator.set_game_state(self)
 	tps_calculator.recalculate()
-	state_changed.connect(_on_state_changed)
+	# 注意：state_changed 信号不再触发 tps_recalculate
+	# TPS 重算只在购买物品/科技时通过 _recalculate_tps() 触发
+	# 这样 add_tokens 每 0.1 秒触发 state_changed 时不会重算 TPS
 
 
-func _on_state_changed() -> void:
+func _recalculate_tps() -> void:
 	tps_calculator.recalculate()
 	emit_signal("tps_recalculated")
 
@@ -100,6 +102,7 @@ func buy_item(item_id: String, batch_size: int) -> bool:
 	item_counts[item_id] = get_item_count(item_id) + batch_size
 	emit_signal("item_purchased", item_id, batch_size)
 	emit_signal("state_changed")
+	_recalculate_tps()
 	return true
 
 
@@ -112,7 +115,14 @@ func is_tech_visible(tech_id: String) -> bool:
 	if tech == null:
 		return false
 	var line: Array = get_tech_line(tech_id)
-	var seq: int = get_tech_seq_in_line(tech_id)
+	# 直接在线性数组中找到序号（避免重复调用 get_tech_line）
+	var seq: int = -1
+	for i in range(line.size()):
+		if line[i].id == tech_id:
+			seq = i
+			break
+	if seq == -1:
+		return false
 	# 同线第一个科技按原 unlock_condition 判断
 	if seq == 0:
 		# 前置科技必须已购买
@@ -166,6 +176,7 @@ func buy_tech(tech_id: String) -> bool:
 	purchased_techs[tech_id] = true
 	emit_signal("tech_purchased", tech_id)
 	emit_signal("state_changed")
+	_recalculate_tps()
 	return true
 
 
@@ -239,6 +250,8 @@ func from_dict(d: Dictionary) -> void:
 	for item_id in ite_dict:
 		item_tokens_earned[item_id] = BigNumber.from_dict(ite_dict[item_id])
 	emit_signal("state_changed")
+	# 加载存档后重算 TPS（物品数量和已购科技可能变化）
+	_recalculate_tps()
 
 
 # ===== 辅助 =====
